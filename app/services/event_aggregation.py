@@ -339,68 +339,166 @@ class EventAggregationService:
             
         text = unified_text.lower()
         
-        # Priority 1: Collision/Accident
+        # Priority 1: Fire Incident
+        if any(kw in text for kw in ["fire", "explosion", "smoke"]):
+            return "fire_incident"
+            
+        # Priority 2: Collision/Accident
         if any(kw in text for kw in ["accident", "collision", "crash", "impact", "damaged"]):
             return "collision_or_accident"
             
-        # Priority 2: Fire
-        if any(kw in text for kw in ["fire", "explosion"]):
-            return "fire_incident"
+        # Priority 3: Medical Emergency
+        if any(kw in text for kw in ["medical", "paramedic", "ambulance", "bleeding", "unconscious", "heart attack", "choking", "fainting"]):
+            return "medical_emergency"
             
-        # Priority 3: Weapon
-        if any(kw in text for kw in ["weapon", "gun", "knife", "assault"]):
-            return "weapon_incident"
+        # Priority 4: Fall Incident
+        if any(kw in text for kw in ["fall", "falling", "dropped", "collapsed", "trip", "slipped"]):
+            return "fall_incident"
             
-        # Priority 4: Intrusion
-        if any(kw in text for kw in ["intrusion", "trespassing", "unauthorized", "forced entry"]):
-            return "intrusion_incident"
+        # Priority 5: Intrusion
+        if any(kw in text for kw in ["intrusion", "trespassing", "unauthorized", "forced entry", "break-in"]):
+            return "intrusion"
             
-        # Priority 5: Generic Critical Incident fallback
-        if any(kw in text for kw in cls.HIGH_SEVERITY_KEYWORDS):
-            return "critical_incident"
-            
+        # Priority 6: Loitering
+        if any(kw in text for kw in ["loiter", "lingering", "waiting suspiciously", "standing around"]):
+            return "loitering"
+
         has_vehicle = any(
             "vehicle" in str(obj.get("type", "")).lower() or 
             "car" in str(obj.get("subtype", "")).lower() or 
             "truck" in str(obj.get("subtype", "")).lower() or
-            "bike" in str(obj.get("subtype", "")).lower()
+            "bike" in str(obj.get("subtype", "")).lower() or
+            "motorcycle" in str(obj.get("subtype", "")).lower() or
+            "bus" in str(obj.get("subtype", "")).lower()
             for obj in objects
         )
-        has_person = any("person" in str(obj.get("type", "")).lower() or "pedestrian" in str(obj.get("subtype", "")).lower() for obj in objects)
+        has_person = any(
+            "person" in str(obj.get("type", "")).lower() or 
+            "pedestrian" in str(obj.get("subtype", "")).lower() or 
+            "guard" in str(obj.get("subtype", "")).lower() or 
+            "rider" in str(obj.get("subtype", "")).lower() or 
+            "man" in str(obj.get("subtype", "")).lower() or 
+            "woman" in str(obj.get("subtype", "")).lower() 
+            for obj in objects
+        )
         
-        # Suspicious/Restricted
-        if "restricted" in text or "unauthorized" in text or "trespass" in text:
-            return "restricted_area_activity"
-        if "suspicious" in text or "fight" in text or "abandoned" in text:
-            return "suspicious_activity"
+        # Priority 7: Vehicle Movement
+        if has_vehicle and any(kw in text for kw in ["drive", "move", "enter", "exit", "park", "depart", "arriv", "station", "stop", "driving"]):
+            return "vehicle_movement"
             
-        # Vehicle Movement
-        if has_vehicle:
-            if "park" in text or "station" in text or "stop" in text:
-                return "stationary_vehicle"
-            if "enter" in text or "arriv" in text:
-                return "vehicle_entry"
-            if "exit" in text or "leav" in text or "depart" in text:
-                return "vehicle_exit"
-            if "driv" in text or "mov" in text:
-                return "vehicle_movement"
-                
-        # Pedestrian Movement
-        if has_person:
-            if "cross" in text:
-                return "pedestrian_crossing"
-            if "enter" in text or "arriv" in text:
-                return "pedestrian_entry"
-            if "exit" in text or "leav" in text or "depart" in text:
-                return "pedestrian_exit"
+        # Priority 8: Pedestrian Activity
+        if has_person and any(kw in text for kw in ["walk", "run", "cross", "enter", "exit", "stand", "sit", "arriv", "depart", "walking", "running"]):
+            return "pedestrian_activity"
             
-        has_indoor = "indoor" in text or "office" in text or "room" in text or "classroom" in text
-        if has_indoor:
-            return "indoor_activity"
-        elif activities:
-            return "activity_detected"
+        # Fallback
+        return "normal_activity"
+
+    @classmethod
+    def analyze_event(
+        cls, 
+        group_frames, 
+        merged_objects, 
+        duration,
+        first_frame
+    ):
+        """Core event understanding engine."""
+        unique_captions = []
+        unique_keywords = []
+        unique_activities = []
+        for f in group_frames:
+            cap = str(f.get("caption", "")).strip()
+            if cap and cap not in unique_captions:
+                unique_captions.append(cap)
+            for kw in f.get("keywords", []):
+                if kw not in unique_keywords:
+                    unique_keywords.append(kw)
+            for a in f.get("activities", []):
+                if a not in unique_activities:
+                    unique_activities.append(a)
+        unique_objects_desc = []
+        for obj in merged_objects:
+            desc = f"{obj.get('color', '')} {obj.get('subtype', '')} {obj.get('type', '')}".strip()
+            if desc and desc not in unique_objects_desc:
+                unique_objects_desc.append(desc)
+        group_unified_text = " ".join(unique_captions + unique_keywords + unique_activities + unique_objects_desc).strip()
+        unified_lower = group_unified_text.lower()
+        event_type = "normal_activity"
+        event_severity = 10
+        if any(w in unified_lower for w in ["falling", "slipped", "collapsed", "lying on floor", "lost balance", "fell"]):
+            event_type = "fall_incident"
+            event_severity = 95
+        elif any(w in unified_lower for w in ["unconscious", "motionless", "medical", "seizure"]):
+            event_type = "medical_emergency"
+            event_severity = 100
+        elif any(w in unified_lower for w in ["collision", "crash", "impact", "damaged vehicle", "accident"]):
+            event_type = "collision_or_accident"
+            event_severity = 95
+        elif any(w in unified_lower for w in ["smoke", "fire", "flames", "burning"]):
+            event_type = "fire_incident"
+            event_severity = 100
+        elif any(w in unified_lower for w in ["trespass", "unauthorized", "intrusion", "break-in"]):
+            event_type = "intrusion"
+            event_severity = 85
+        elif any(w in unified_lower for w in ["loitering", "standing still"]):
+            event_type = "loitering"
+            event_severity = 60
+        elif any(w in unified_lower for w in ["driving", "parking", "vehicle", "car moving", "truck"]):
+            event_type = "vehicle_movement"
+            event_severity = 30
+        elif any(w in unified_lower for w in ["walking", "running", "person", "pedestrian"]):
+            event_type = "pedestrian_activity"
+            event_severity = 20
+        ignore_terms = ["floor", "wall", "road", "tile", "ground", "ceiling", "sky", "background", "gray metal", "silver/grey metal", "white security booth", "white entrance building", "gray metallic", "metal security gate", "security gate", "entrance building", "gatehouse", "metal fence", "tree", "signboard", "building", "pole"]
+        valid_objects = [o for o in merged_objects if not any(t in f'{o.get("color","")} {o.get("subtype","")} {o.get("type","")}'.lower() for t in ignore_terms)]
+        persons, vehicles, animals, objects_list, furnitures = [], [], [], [], []
+        for o in valid_objects:
+            text = f"{o.get('type', '')} {o.get('subtype', '')}".lower()
+            if any(k in text for k in ["person", "pedestrian", "guard", "rider", "man", "woman"]): persons.append(o)
+            elif any(k in text for k in ["vehicle", "car", "truck", "bike", "motorcycle", "scooter", "bus"]): vehicles.append(o)
+            elif any(k in text for k in ["animal", "dog", "cat", "bird"]): animals.append(o)
+            elif any(k in text for k in ["furniture", "chair", "table", "desk", "sofa", "couch"]): furnitures.append(o)
+            else: objects_list.append(o)
+        primary_agent_obj = (persons + vehicles + animals + objects_list + furnitures + [None])[0]
+        agent_name = "Subject"
+        if primary_agent_obj:
+            t = primary_agent_obj.get("type", "").lower()
+            st = primary_agent_obj.get("subtype", "").lower()
+            if "guard" in st or "officer" in st: agent_name = "Security guard"
+            elif "rider" in st or "motorcyclist" in st: agent_name = "Motorcyclist"
+            elif "person" in t or "pedestrian" in st: agent_name = "Person"
+            elif any(x in t or x in st for x in ["motorcycle", "scooter", "bike"]): agent_name = "Motorcycle"
+            elif "car" in st or "vehicle" in t: agent_name = "Vehicle"
+            else: agent_name = (st or t).capitalize()
+        scene_context = first_frame.get("scene_description", "") or ""
+        real_world_time = cls._extract_real_world_time(group_frames)
+        actor_description = cls._build_actor_description(primary_agent_obj)
+        participants, participant_count = cls._build_participants(merged_objects, primary_agent_obj)
+        behavioral_flags = cls._compute_behavioral_flags(unique_activities, duration, participant_count, merged_objects, group_unified_text)
+        joined_activities = " and ".join(unique_activities) if unique_activities else ""
+        summary_parts = []
+        if event_type == "collision_or_accident": summary_parts.append(f"A collision or accident occurred involving {agent_name.lower()}")
+        elif event_type == "fire_incident": summary_parts.append(f"A fire or explosion incident was detected")
+        elif event_type == "medical_emergency": summary_parts.append(f"A medical emergency was observed involving {agent_name.lower()}")
+        elif event_type == "fall_incident": summary_parts.append(f"A fall incident was detected where {agent_name.lower()} fell")
+        elif event_type == "intrusion": summary_parts.append(f"An intrusion or unauthorized access was detected by {agent_name.lower()}")
+        elif event_type == "loitering": summary_parts.append(f"{agent_name} was observed loitering")
+        elif event_type == "vehicle_movement": summary_parts.append(f"Vehicle movement involving {agent_name.lower()} was detected")
+        elif event_type == "pedestrian_activity": summary_parts.append(f"Pedestrian activity involving {agent_name.lower()} was detected")
         else:
-            return "motion_detected"
+            if unique_activities: summary_parts.append(f"{agent_name} was observed {joined_activities}")
+            else: summary_parts.append(f"{agent_name} was present")
+        event_summary = " ".join(summary_parts)
+        narrative_sentence = cls._build_narrative_sentence(
+            agent_name, actor_description, unique_activities, "{location_placeholder}",
+            participants, real_world_time, behavioral_flags,
+        )
+        return {
+            "event_type": event_type, "event_severity": event_severity, "primary_actor": agent_name,
+            "primary_object": agent_name, "event_summary": event_summary, "group_unified_text": group_unified_text,
+            "behavioral_flags": behavioral_flags, "scene_context": scene_context, "real_world_time": real_world_time,
+            "narrative_sentence": narrative_sentence, "participants": participants, "actor_description": actor_description,
+            "unique_activities": unique_activities
+        }
 
     @classmethod
     def process_events(cls, video_id: str, frames_metadata: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -440,13 +538,25 @@ class EventAggregationService:
 
             def is_critical(f: Dict) -> bool:
                 text = cls.extract_event_text(f)
-                return any(kw in text for kw in cls.HIGH_SEVERITY_KEYWORDS)
+                evt_type = cls.infer_event_type(f.get("objects", []), f.get("activities", []), f.get("scene_type", ""), text)
+                return evt_type in {"fall_incident", "medical_emergency", "collision_or_accident", "fire_incident", "intrusion"}
 
             group_critical = any(is_critical(f) for f in group)
             new_critical = is_critical(new_frame)
             
+            # Strict incident preservation boundary
             if new_critical and not group_critical:
                 return False
+            if group_critical and not new_critical:
+                return False
+                
+            if group_critical and new_critical:
+                g_text = cls.extract_event_text(group[-1])
+                g_type = cls.infer_event_type(group[-1].get("objects", []), group[-1].get("activities", []), group[-1].get("scene_type", ""), g_text)
+                n_text = cls.extract_event_text(new_frame)
+                n_type = cls.infer_event_type(new_frame.get("objects", []), new_frame.get("activities", []), new_frame.get("scene_type", ""), n_text)
+                if g_type != n_type:
+                    return False
                 
             # 2. Activity Match (Stricter)
             # Require exact phrase match or >=2 shared non-stop words
@@ -636,8 +746,9 @@ class EventAggregationService:
                 if match:
                     location_text = match.group(1)
             
-            # 2. Identify agent (Priority: Person -> Vehicle -> Object -> Structure)
-            ignore_terms = ["gray metal", "silver/grey metal", "white security booth", "carrying bag", "backpack", "duffel", "white entrance building", "gray metallic", "metal security gate", "security gate", "entrance building", "gatehouse", "metal fence", "tree", "signboard", "building", "pole"]
+            # 2. Identify agent (Priority: Person > Vehicle > Animal > Object > Furniture > Background)
+            # Floor, wall, road, tile must never become primary actors.
+            ignore_terms = ["floor", "wall", "road", "tile", "ground", "ceiling", "sky", "background", "gray metal", "silver/grey metal", "white security booth", "white entrance building", "gray metallic", "metal security gate", "security gate", "entrance building", "gatehouse", "metal fence", "tree", "signboard", "building", "pole"]
 
             def is_valid_agent(obj_dict):
                 desc = f'{obj_dict.get("color","")} {obj_dict.get("subtype","")} {obj_dict.get("type","")}'.lower()
@@ -648,16 +759,39 @@ class EventAggregationService:
 
             valid_objects = [o for o in merged_objects if is_valid_agent(o)]
 
-            people = [o for o in valid_objects if "person" in o.get("type", "").lower() or "guard" in o.get("subtype", "").lower() or "rider" in o.get("subtype", "").lower() or "pedestrian" in o.get("subtype", "").lower()]
-            vehicles = [o for o in valid_objects if "vehicle" in o.get("type", "").lower() or "motorcycle" in o.get("type", "").lower() or "car" in o.get("subtype", "").lower() or "bike" in o.get("subtype", "").lower() or "scooter" in o.get("subtype", "").lower()]
+            persons = []
+            vehicles = []
+            animals = []
+            objects_list = []
+            furnitures = []
+
+            for o in valid_objects:
+                t = str(o.get("type", "")).lower()
+                st = str(o.get("subtype", "")).lower()
+                text = f"{t} {st}"
+                
+                if any(k in text for k in ["person", "pedestrian", "guard", "rider", "man", "woman"]):
+                    persons.append(o)
+                elif any(k in text for k in ["vehicle", "car", "truck", "bike", "motorcycle", "scooter", "bus"]):
+                    vehicles.append(o)
+                elif any(k in text for k in ["animal", "dog", "cat", "bird"]):
+                    animals.append(o)
+                elif any(k in text for k in ["furniture", "chair", "table", "desk", "sofa", "couch"]):
+                    furnitures.append(o)
+                else:
+                    objects_list.append(o)
 
             primary_agent = None
-            if people:
-                primary_agent = people[0]
+            if persons:
+                primary_agent = persons[0]
             elif vehicles:
                 primary_agent = vehicles[0]
-            elif valid_objects:
-                primary_agent = valid_objects[0]
+            elif animals:
+                primary_agent = animals[0]
+            elif objects_list:
+                primary_agent = objects_list[0]
+            elif furnitures:
+                primary_agent = furnitures[0]
 
             agent_name = "Subject"
             if primary_agent:
@@ -667,7 +801,7 @@ class EventAggregationService:
                     agent_name = "Security guard"
                 elif "rider" in st or "motorcyclist" in st:
                     agent_name = "Motorcyclist"
-                elif "person" in t:
+                elif "person" in t or "pedestrian" in st:
                     agent_name = "Person"
                 elif "motorcycle" in t or "motorcycle" in st or "scooter" in st or "bike" in st:
                     agent_name = "Motorcycle"
@@ -689,10 +823,32 @@ class EventAggregationService:
             # Participants: other persons/vehicles in the scene
             participants, participant_count = cls._build_participants(merged_objects, primary_agent)
 
-            # Narrative sentence: one-line investigation summary for this event
-            # Combine all unified texts for the group to pass to flags/event_type computation
-            group_unified_texts = [cls.extract_event_text(f) for f in group]
-            group_unified_text = " ".join(group_unified_texts)
+            # 3. Remove unified_text duplication
+            unique_captions = []
+            for f in group:
+                cap = str(f.get("caption", "")).strip()
+                if cap and cap not in unique_captions:
+                    unique_captions.append(cap)
+            
+            unique_keywords = []
+            for f in group:
+                for kw in f.get("keywords", []):
+                    if kw not in unique_keywords:
+                        unique_keywords.append(kw)
+                        
+            unique_activities = []
+            for f in group:
+                for a in f.get("activities", []):
+                    if a not in unique_activities:
+                        unique_activities.append(a)
+                        
+            unique_objects_desc = []
+            for obj in merged_objects:
+                desc = f"{obj.get('color', '')} {obj.get('subtype', '')} {obj.get('type', '')}".strip()
+                if desc and desc not in unique_objects_desc:
+                    unique_objects_desc.append(desc)
+                    
+            group_unified_text = " ".join(unique_captions + unique_keywords + unique_activities + unique_objects_desc).strip()
 
             # Behavioral flags: pattern analysis
             behavioral_flags = cls._compute_behavioral_flags(activities, duration, participant_count, merged_objects, group_unified_text)
@@ -710,44 +866,55 @@ class EventAggregationService:
             primary_color = primary_agent.get("color", "") if primary_agent else ""
             activity_summary = activities[0] if activities else "present"
 
-            # 3. Description synthesis
-            joined_activities = " and ".join(activities) if activities else ""
-            acts_lower = joined_activities.lower()
-
-            if "interact" in acts_lower:
-                summary = f"Security guard interacted with an arriving rider at {location_text}."
-            elif agent_name == "Motorcyclist" and "carrying" in acts_lower:
-                summary = f"Motorcyclist carrying a backpack or object approached {location_text}."
-            elif agent_name == "Security guard":
-                if "stand" in acts_lower:
-                    summary = f"Security guard was observing the checkpoint at {location_text}."
-                else:
-                    summary = f"Security guard was present at {location_text}."
-            elif agent_name == "Motorcycle":
-                summary = f"Motorcycle entered or moved through {location_text}."
-            else:
-                if activities:
-                    summary = f"{agent_name} was observed {joined_activities} at {location_text}."
-                else:
-                    summary = f"{agent_name} was present at {location_text}."
-
             # Infer event type with full taxonomy
             scene_type = first_frame.get("scene_type", "unknown")
             event_type = cls.infer_event_type(merged_objects, activities, scene_type, group_unified_text)
+
+            # 4. Description synthesis
+            joined_activities = " and ".join(activities) if activities else ""
+            summary_parts = []
+            
+            if event_type == "collision_or_accident":
+                summary_parts.append(f"A collision or accident occurred involving {agent_name.lower()}")
+            elif event_type == "fire_incident":
+                summary_parts.append(f"A fire or explosion incident was detected")
+            elif event_type == "medical_emergency":
+                summary_parts.append(f"A medical emergency was observed involving {agent_name.lower()}")
+            elif event_type == "fall_incident":
+                summary_parts.append(f"A fall incident was detected where {agent_name.lower()} fell")
+            elif event_type == "intrusion":
+                summary_parts.append(f"An intrusion or unauthorized access was detected by {agent_name.lower()}")
+            elif event_type == "loitering":
+                summary_parts.append(f"{agent_name} was observed loitering")
+            elif event_type == "vehicle_movement":
+                summary_parts.append(f"Vehicle movement involving {agent_name.lower()} was detected")
+            elif event_type == "pedestrian_activity":
+                summary_parts.append(f"Pedestrian activity involving {agent_name.lower()} was detected")
+            else:
+                if activities:
+                    summary_parts.append(f"{agent_name} was observed {joined_activities}")
+                else:
+                    summary_parts.append(f"{agent_name} was present")
+                    
+            summary_parts[0] += f" at {location_text}."
+            
+            if participants:
+                summary_parts.append(f"Other participants: {', '.join(participants)}.")
+                
+            summary = " ".join(summary_parts)
 
             # Map event type to severity
             severity_map = {
                 "collision_or_accident": 100,
                 "fire_incident": 100,
-                "weapon_incident": 95,
-                "intrusion_incident": 90,
-                "critical_incident": 80,
-                "restricted_area_activity": 70,
-                "suspicious_activity": 60,
-                "vehicle_entry": 30,
-                "vehicle_exit": 30,
-                "vehicle_movement": 20,
-                "stationary_vehicle": 10
+                "medical_emergency": 95,
+                "fall_incident": 90,
+                "intrusion": 85,
+                "weapon_incident": 90,
+                "loitering": 60,
+                "vehicle_movement": 30,
+                "pedestrian_activity": 20,
+                "normal_activity": 10
             }
             event_severity = severity_map.get(event_type, 15)
 

@@ -103,6 +103,7 @@ class SearchService:
                     "duration_seconds": float(event.get("duration_seconds", 0.0)),
                     "objects": event.get("objects", []),
                     "activities": event.get("activities", []),
+                    "primary_actor": event.get("primary_actor", "Unknown"),
                     "thumbnail_path": event.get("thumbnail_path")
                 }
                 
