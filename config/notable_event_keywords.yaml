@@ -1,0 +1,61 @@
+suspicious:
+  - collision
+  - accident
+  - crash
+  - fire
+  - explosion
+  - damaged vehicle
+  - restricted area
+  - restricted zone
+  - unauthorized access
+  - intrusion
+  - trespassing
+  - abandoned object
+  - unattended bag
+  - unattended package
+  - suspicious package
+  - weapon
+  - gun
+  - knife
+  - fight
+  - physical altercation
+  - assault
+  - vandalism
+  - breaking
+  - forced entry
+  - climbing fence
+  - loitering
+  - crowd gathering
+  - crowd forming
+  - person running
+  - person hiding
+  - suspicious activity
+
+operational:
+  - stationary vehicle
+  - vehicle stopped
+  - vehicle parked
+  - wrong direction
+  - road blockage
+  - traffic congestion
+  - vehicle reversing
+  - vehicle entering
+  - vehicle exiting
+  - person lingering
+  - person waiting
+  - restricted area marker
+
+analytics:
+  - crossing road
+  - pedestrian crossing
+  - vehicle movement
+  - vehicle presence
+  - person walking
+  - person standing
+  - group of people
+  - queue
+  - bicycle
+  - motorcycle
+  - taxi
+  - truck
+  - bus

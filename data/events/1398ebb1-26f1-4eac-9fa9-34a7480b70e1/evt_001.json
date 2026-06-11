@@ -1,0 +1,241 @@
+{
+    "event_id": "evt_001",
+    "video_id": "1398ebb1-26f1-4eac-9fa9-34a7480b70e1",
+    "start_time": 0.0,
+    "end_time": 34.0,
+    "timestamp_start_seconds": 0.0,
+    "timestamp_end_seconds": 34.0,
+    "timestamp_start_human": "00:00:00",
+    "timestamp_end_human": "00:00:34",
+    "duration_seconds": 34.0,
+    "frame_count": 6,
+    "objects": [
+        {
+            "type": "personnel",
+            "subtype": "security guard",
+            "color": "black/white",
+            "attributes": []
+        },
+        {
+            "type": "fence",
+            "subtype": "metal barrier",
+            "color": "gray",
+            "attributes": [
+                "closed",
+                "secure boundary"
+            ]
+        },
+        {
+            "type": "building",
+            "subtype": "entrance building",
+            "color": "beige/off-white",
+            "attributes": [
+                "open door leading inside"
+            ]
+        },
+        {
+            "type": "fence",
+            "subtype": "metal security fence",
+            "color": "gray",
+            "attributes": []
+        },
+        {
+            "type": "building",
+            "subtype": "gatehouse",
+            "color": "white",
+            "attributes": [
+                "attached to metal fencing",
+                "rectangular shape"
+            ]
+        },
+        {
+            "type": "signage",
+            "subtype": "entrance sign",
+            "color": "red/white",
+            "attributes": [
+                "text indicating \"Gate Entrance Area\""
+            ]
+        },
+        {
+            "type": "electric pole",
+            "subtype": "utility pole",
+            "color": "brown/black",
+            "attributes": [
+                "with wires connected"
+            ]
+        },
+        {
+            "type": "vehicle",
+            "subtype": "motorcycle",
+            "color": "blue/red",
+            "attributes": [
+                "parked near building"
+            ]
+        },
+        {
+            "type": "fence",
+            "subtype": "metal gate",
+            "color": "brown",
+            "attributes": []
+        },
+        {
+            "type": "building",
+            "subtype": "security booth",
+            "color": "white",
+            "attributes": [
+                "entrance",
+                "guarded by uniformed personnel",
+                "open door",
+                "with windows"
+            ]
+        },
+        {
+            "type": "signage",
+            "subtype": "entrance sign",
+            "color": "blue",
+            "attributes": [
+                "visible on building behind fence"
+            ]
+        },
+        {
+            "type": "vehicle",
+            "subtype": "motorcycle",
+            "color": "red",
+            "attributes": [
+                "parked near entrance"
+            ]
+        },
+        {
+            "type": "personnel",
+            "subtype": "guard",
+            "color": "uniform white",
+            "attributes": [
+                "standing beside motorcycle"
+            ]
+        },
+        {
+            "type": "personnel",
+            "subtype": "security guard",
+            "color": "white shirt, dark pants",
+            "attributes": []
+        },
+        {
+            "type": "fence",
+            "subtype": "metal gate",
+            "color": "gray metallic",
+            "attributes": [
+                "closed",
+                "high"
+            ]
+        },
+        {
+            "type": "building",
+            "subtype": "entrance building",
+            "color": "light beige/cream",
+            "attributes": [
+                "open door",
+                "utility poles visible behind"
+            ]
+        },
+        {
+            "type": "fence",
+            "subtype": "metallic security fence",
+            "color": "gray",
+            "attributes": []
+        },
+        {
+            "type": "gate",
+            "subtype": "large metal gate",
+            "color": "silver",
+            "attributes": [
+                "closed state",
+                "guarded by person standing nearby"
+            ]
+        },
+        {
+            "type": "signage",
+            "subtype": "emergency exit sign",
+            "color": "red/white",
+            "attributes": [
+                "visible on left side wall"
+            ]
+        },
+        {
+            "type": "gate",
+            "subtype": "metallic security gate",
+            "color": "brown",
+            "attributes": [
+                "barred design",
+                "closed"
+            ]
+        },
+        {
+            "type": "building",
+            "subtype": "facade building",
+            "color": "white",
+            "attributes": [
+                "entrance door visible",
+                "modern architecture"
+            ]
+        },
+        {
+            "type": "fence",
+            "subtype": "electric fence",
+            "color": "black",
+            "attributes": [
+                "with barbed wire top"
+            ]
+        },
+        {
+            "type": "trees",
+            "subtype": "green foliage trees",
+            "color": "various shades green",
+            "attributes": []
+        },
+        {
+            "type": "vehicles",
+            "subtype": "cars",
+            "color": "blue and red",
+            "attributes": [
+                "parked behind the gate"
+            ]
+        }
+    ],
+    "activities": [
+        "vehicle parked",
+        "standing"
+    ],
+    "primary_object": "Security guard",
+    "color": "black/white",
+    "primary_activity": "vehicle parked",
+    "source_frames": [
+        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0001",
+        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0030",
+        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0031",
+        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0032",
+        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0033",
+        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0034"
+    ],
+    "event_type": "stationary_vehicle",
+    "summary": "Security guard was observing the checkpoint at Gate 1 Enterance Area.",
+    "scene_context": "a gate entrance area during daytime, likely at an industrial facility given the presence of security personnel.",
+    "real_world_time": "18:04:19",
+    "actor_description": "black/white, security guard",
+    "participants": [
+        "gray metal security fence",
+        "blue/red motorcycle (parked near building)",
+        "white security booth (entrance)",
+        "red motorcycle (parked near entrance)",
+        "uniform white guard (standing beside motorcycle)",
+        "white shirt, dark pants security guard"
+    ],
+    "participant_count": 10,
+    "behavioral_flags": [
+        "prolonged_activity",
+        "multi_person",
+        "static_vehicle"
+    ],
+    "confidence": 0.715,
+    "narrative_sentence": "At 18:04:19, Security guard (black/white, security guard) was parked at Gate 1 Enterance Area. Others present: gray metal security fence, blue/red motorcycle (parked near building).",
+    "location_text": "Gate 1 Enterance Area"
+}

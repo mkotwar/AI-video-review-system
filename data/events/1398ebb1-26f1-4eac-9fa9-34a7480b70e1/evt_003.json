@@ -1,0 +1,301 @@
+{
+    "event_id": "evt_003",
+    "video_id": "1398ebb1-26f1-4eac-9fa9-34a7480b70e1",
+    "start_time": 41.0,
+    "end_time": 59.0,
+    "timestamp_start_seconds": 41.0,
+    "timestamp_end_seconds": 59.0,
+    "timestamp_start_human": "00:00:41",
+    "timestamp_end_human": "00:00:59",
+    "duration_seconds": 18.0,
+    "frame_count": 9,
+    "objects": [
+        {
+            "type": "fence",
+            "subtype": "metal security fence",
+            "color": "gray",
+            "attributes": []
+        },
+        {
+            "type": "building",
+            "subtype": "guard booth",
+            "color": "beige/white",
+            "attributes": [
+                "open door",
+                "utility pole nearby"
+            ]
+        },
+        {
+            "type": "vehicle",
+            "subtype": "car",
+            "color": "red",
+            "attributes": [
+                "partially visible behind gate"
+            ]
+        },
+        {
+            "type": "fence",
+            "subtype": "metallic security fence",
+            "color": "gray",
+            "attributes": []
+        },
+        {
+            "type": "building",
+            "subtype": "security booth",
+            "color": "beige/white",
+            "attributes": [
+                "guard present inside",
+                "open door"
+            ]
+        },
+        {
+            "type": "gate",
+            "subtype": "large metal gate",
+            "color": "brown",
+            "attributes": [
+                "closed state",
+                "open state",
+                "secure area entrance"
+            ]
+        },
+        {
+            "type": "vehicle",
+            "subtype": "red car",
+            "color": "red",
+            "attributes": [
+                "parked behind gate"
+            ]
+        },
+        {
+            "type": "trees",
+            "subtype": "",
+            "color": "green",
+            "attributes": [
+                "visible behind fence",
+                "visible on right side"
+            ]
+        },
+        {
+            "type": "power lines",
+            "subtype": "",
+            "color": "black",
+            "attributes": [
+                "running above ground"
+            ]
+        },
+        {
+            "type": "fence",
+            "subtype": "metallic security fence",
+            "color": "gray metallic",
+            "attributes": []
+        },
+        {
+            "type": "building",
+            "subtype": "security booth",
+            "color": "white",
+            "attributes": [
+                "open door",
+                "person inside"
+            ]
+        },
+        {
+            "type": "vehicle",
+            "subtype": "red utility vehicle",
+            "color": "red",
+            "attributes": [
+                "parked near building"
+            ]
+        },
+        {
+            "type": "power lines",
+            "subtype": "",
+            "color": "brown/black",
+            "attributes": [
+                "running above ground"
+            ]
+        },
+        {
+            "type": "building",
+            "subtype": "entrance building",
+            "color": "white",
+            "attributes": []
+        },
+        {
+            "type": "gate",
+            "subtype": "metallic security gate",
+            "color": "gray",
+            "attributes": [
+                "barbed wire on top",
+                "closed"
+            ]
+        },
+        {
+            "type": "fence",
+            "subtype": "wooden fence",
+            "color": "brown",
+            "attributes": [
+                "partially visible behind gate"
+            ]
+        },
+        {
+            "type": "pole",
+            "subtype": "electric pole",
+            "color": "black",
+            "attributes": [
+                "with wires connected"
+            ]
+        },
+        {
+            "type": "car",
+            "subtype": "red car parked inside",
+            "color": "red",
+            "attributes": [
+                "visible through gate opening"
+            ]
+        },
+        {
+            "type": "building",
+            "subtype": "security building",
+            "color": "white",
+            "attributes": [
+                "entrance door",
+                "guard presence"
+            ]
+        },
+        {
+            "type": "fence",
+            "subtype": "metallic security fence",
+            "color": "brown",
+            "attributes": []
+        },
+        {
+            "type": "gate",
+            "subtype": "closed metal gate",
+            "color": "gray",
+            "attributes": [
+                "locked position"
+            ]
+        },
+        {
+            "type": "vehicle",
+            "subtype": "motorcycle",
+            "color": "red",
+            "attributes": [
+                "parked near building",
+                "parked near doorway"
+            ]
+        },
+        {
+            "type": "gate",
+            "subtype": "metallic security gate",
+            "color": "silver/grey",
+            "attributes": []
+        },
+        {
+            "type": "building",
+            "subtype": "facade building",
+            "color": "white",
+            "attributes": [
+                "entrance door open",
+                "utility pole visible behind"
+            ]
+        },
+        {
+            "type": "person",
+            "subtype": "",
+            "color": "None",
+            "attributes": [
+                "standing on left side wearing plaid shirt and jeans"
+            ]
+        },
+        {
+            "type": "vehicle",
+            "subtype": "scooter",
+            "color": "black",
+            "attributes": [
+                "brand name visible as \"Ducati\"",
+                "motorcycle"
+            ]
+        },
+        {
+            "type": "building",
+            "subtype": "entrance gate",
+            "color": "white",
+            "attributes": [
+                "metal fence",
+                "open door leading inside"
+            ]
+        },
+        {
+            "type": "personnel",
+            "subtype": "security guard",
+            "color": "tan",
+            "attributes": [
+                "uniformed standing nearby"
+            ]
+        },
+        {
+            "type": "vehicle",
+            "subtype": "motorcycle",
+            "color": "black",
+            "attributes": []
+        },
+        {
+            "type": "building",
+            "subtype": "gatehouse",
+            "color": "white",
+            "attributes": [
+                "entrance door open",
+                "utility poles visible behind"
+            ]
+        },
+        {
+            "type": "fence",
+            "subtype": "metal fence",
+            "color": "gray",
+            "attributes": [
+                "large size covering entire width"
+            ]
+        }
+    ],
+    "activities": [
+        "vehicle parked",
+        "running"
+    ],
+    "primary_object": "Person",
+    "color": "None",
+    "primary_activity": "vehicle parked",
+    "source_frames": [
+        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0042",
+        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0043",
+        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0044",
+        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0045",
+        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0051",
+        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0052",
+        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0053",
+        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0058",
+        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0059"
+    ],
+    "event_type": "stationary_vehicle",
+    "summary": "Person was observed vehicle parked and running at Gate 1 Enterance Area.",
+    "scene_context": "a gate entrance area during daytime, likely at an industrial facility given the presence of metal fencing and utility poles.",
+    "real_world_time": "18:04:32",
+    "actor_description": "standing on left side wearing plaid shirt and jeans",
+    "participants": [
+        "gray metal security fence",
+        "beige/white guard booth (open door)",
+        "red car (partially visible behind gate)",
+        "gray metallic security fence",
+        "beige/white security booth (guard present inside)",
+        "red red car (parked behind gate)"
+    ],
+    "participant_count": 19,
+    "behavioral_flags": [
+        "multi_person",
+        "static_vehicle",
+        "person_running"
+    ],
+    "confidence": 0.803,
+    "narrative_sentence": "At 18:04:32, Person (standing on left side wearing plaid shirt and jeans) was parked at Gate 1 Enterance Area. Others present: gray metal security fence, beige/white guard booth (open door).",
+    "location_text": "Gate 1 Enterance Area"
+}

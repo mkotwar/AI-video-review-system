@@ -1,0 +1,280 @@
+"""Activity Recovery Layer.
+
+Post-processing service that recovers semantic activity information from frame
+metadata when the primary ``activities`` field returned by the VLM is empty.
+
+The VLM consistently places activity/state information in three locations:
+  - ``objects[].attributes`` (e.g. "stationary", "parked position", "walking away")
+  - ``caption``              (e.g. "a silver sedan parked curbside...")
+  - ``keywords``             (e.g. "vehicle parked", "pedestrian crossing")
+
+...but frequently returns ``"activities": []``.
+
+This layer mines those three sources in priority order and back-fills the
+``activities`` list before the metadata is validated by Pydantic and written
+to disk.  The recovery source is recorded in ``activity_recovery_source`` so
+callers can distinguish VLM-native activities from recovered ones.
+"""
+
+import re
+from typing import Any, Dict, List, Optional, Tuple
+
+from loguru import logger
+
+
+class ActivityRecoveryService:
+    """Recovers activity labels from VLM frame metadata when ``activities`` is empty.
+
+    Recovery priority order:
+    1. Object ``attributes``  — highest confidence (model already classified state)
+    2. ``caption`` patterns   — medium confidence (model described activity in prose)
+    3. ``keywords``           — lower confidence (model tagged relevant concepts)
+    """
+
+    # ------------------------------------------------------------------ #
+    # Rule tables                                                          #
+    # Each table is a list of (trigger_pattern, activity_label) tuples.   #
+    # Patterns are matched as substrings (case-insensitive).              #
+    # First matching rule per source string wins.                         #
+    # ------------------------------------------------------------------ #
+
+    # Attribute text → activity label
+    # Ordered most-specific → most-general so early rules don't shadow later ones.
+    ATTRIBUTE_RULES: List[Tuple[str, str]] = [
+        # --- Vehicle motion / parking state ---
+        ("parked position",         "vehicle parked"),
+        ("parked",                  "vehicle parked"),
+        ("stationary",              "vehicle stationary"),
+        ("taillights lit",          "vehicle stationary"),
+        ("brake lights",            "vehicle stationary"),
+        ("stopped",                 "vehicle stopped"),
+        ("reversing",               "vehicle reversing"),
+        ("in motion",               "vehicle moving"),
+        ("moving",                  "vehicle moving"),
+        ("entering",                "vehicle entering"),
+        ("exiting",                 "vehicle exiting"),
+        ("arriving",                "vehicle arriving"),
+        ("departing",               "vehicle departing"),
+        # --- Vehicle occupancy ---
+        ("person seated on it",     "vehicle occupied"),
+        ("driver inside",           "vehicle occupied"),
+        ("occupied",                "vehicle occupied"),
+        # --- Person motion ---
+        ("walking away",            "walking"),
+        ("walking towards",         "walking"),
+        ("walking",                 "walking"),
+        ("running",                 "running"),
+        ("crossing",                "crossing road"),
+        ("standing",                "standing"),
+        ("sitting",                 "sitting"),
+        ("loitering",               "loitering"),
+        ("carrying",                "carrying object"),
+        ("holding",                 "carrying object"),
+    ]
+
+    # Caption regex pattern → activity label
+    # Ordered most-specific → most-general.
+    CAPTION_RULES: List[Tuple[str, str]] = [
+        # Vehicle parked / stationary
+        (r"\bpark(?:ed|ing|s)?\b",          "vehicle parked"),
+        (r"\bstation(?:ary|ed)\b",          "vehicle stationary"),
+        (r"\bstopp(?:ed|ing)\b",            "vehicle stopped"),
+        # Vehicle motion
+        (r"\bdriv(?:ing|es|en|e|er)\b",     "driving"),
+        (r"\btravell?(?:ing|ed|s)\b",       "moving"),
+        (r"\benter(?:ing|s|ed)\b",          "entering"),
+        (r"\bexit(?:ing|s|ed)\b",           "exiting"),
+        (r"\barr(?:iving|ived|ives)\b",     "arriving"),
+        (r"\bdepart(?:ing|s|ed)\b",         "departing"),
+        (r"\brevers(?:ing|ed|es)\b",        "reversing"),
+        (r"\bmoving?\b",                    "moving"),
+        # Person motion
+        (r"\bwalk(?:ing|s|ed|er)\b",        "walking"),
+        (r"\brun(?:ning|s|ner)\b",          "running"),
+        (r"\bcross(?:ing|es|ed)\b",         "crossing road"),
+        (r"\bstand(?:ing|s)\b",             "standing"),
+        (r"\bsit(?:ting|s|sat|ted)\b",      "sitting"),
+        (r"\bapproach(?:ing|es|ed)\b",      "approaching"),
+        (r"\bloiter(?:ing)?\b",             "loitering"),
+        (r"\bcarrying?\b",                  "carrying object"),
+        (r"\bholds?\b",                     "carrying object"),
+        (r"\bseated\b",                     "seated"),
+    ]
+
+    # Keyword text → activity label
+    KEYWORD_RULES: List[Tuple[str, str]] = [
+        ("vehicle parked",          "vehicle parked"),
+        ("car parked",              "vehicle parked"),
+        ("vehicle stopped",         "vehicle stopped"),
+        ("pedestrian crossing",     "crossing road"),
+        ("vehicle crossing",        "crossing road"),
+        ("motorbike rider",         "riding motorcycle"),
+        ("construction activity",   "construction activity"),
+        ("pedestrian activity",     "walking"),
+        ("person walking",          "walking"),
+        ("person standing",         "standing"),
+        ("person running",          "running"),
+        ("traveling",               "moving"),
+    ]
+
+    # Captions with these exact values carry no useful information
+    _EMPTY_CAPTIONS: frozenset = frozenset({
+        "",
+        "no description available.",
+        "no description available",
+        "n/a",
+    })
+
+    # ------------------------------------------------------------------ #
+    # Recovery methods                                                     #
+    # ------------------------------------------------------------------ #
+
+    @classmethod
+    def recover_from_attributes(cls, objects: List[Dict[str, Any]]) -> List[str]:
+        """Mine activity labels from each object's ``attributes`` list.
+
+        Args:
+            objects: List of object dicts from frame metadata.
+
+        Returns:
+            Deduplicated list of recovered activity labels.
+        """
+        recovered: List[str] = []
+        for obj in objects:
+            attrs = obj.get("attributes", [])
+            if not isinstance(attrs, list):
+                continue
+            for attr in attrs:
+                attr_lower = str(attr).lower()
+                for trigger, activity in cls.ATTRIBUTE_RULES:
+                    if trigger in attr_lower and activity not in recovered:
+                        recovered.append(activity)
+                        break  # one activity per attribute string
+        return recovered
+
+    @classmethod
+    def recover_from_caption(cls, caption: str) -> List[str]:
+        """Mine activity labels from the frame caption using regex patterns.
+
+        Args:
+            caption: Caption string from frame metadata.
+
+        Returns:
+            Deduplicated list of recovered activity labels.
+        """
+        recovered: List[str] = []
+        caption_stripped = caption.strip().lower()
+        if caption_stripped in cls._EMPTY_CAPTIONS:
+            return recovered
+        for pattern, activity in cls.CAPTION_RULES:
+            if re.search(pattern, caption_stripped) and activity not in recovered:
+                recovered.append(activity)
+        return recovered
+
+    @classmethod
+    def recover_from_keywords(cls, keywords: List[str]) -> List[str]:
+        """Mine activity labels from the keywords list.
+
+        Args:
+            keywords: Keywords list from frame metadata.
+
+        Returns:
+            Deduplicated list of recovered activity labels.
+        """
+        recovered: List[str] = []
+        if not keywords:
+            return recovered
+        keywords_text = " ".join(keywords).lower()
+        for trigger, activity in cls.KEYWORD_RULES:
+            if trigger in keywords_text and activity not in recovered:
+                recovered.append(activity)
+        return recovered
+
+    # ------------------------------------------------------------------ #
+    # Public API                                                           #
+    # ------------------------------------------------------------------ #
+
+    @classmethod
+    def recover(
+        cls,
+        frame_data: Dict[str, Any],
+    ) -> Tuple[List[str], str]:
+        """Attempt to recover activities from frame metadata when ``activities`` is empty.
+
+        Args:
+            frame_data: Dictionary containing frame metadata fields.
+
+        Returns:
+            Tuple ``(activities, source)`` where ``source`` is one of:
+              - ``"original"``   — VLM already returned non-empty activities (no recovery needed)
+              - ``"attributes"`` — recovered from object attribute descriptions
+              - ``"caption"``    — recovered from caption text patterns
+              - ``"keywords"``   — recovered from keywords list
+              - ``"none"``       — no activities recoverable from any source
+        """
+        existing = frame_data.get("activities", [])
+        if existing:
+            return list(existing), "original"
+
+        frame_id = frame_data.get("frame_id", "unknown")
+        objects  = frame_data.get("objects", [])
+        caption  = str(frame_data.get("caption", ""))
+        keywords = frame_data.get("keywords", []) or []
+
+        # Priority 1 — object attributes (highest confidence)
+        attr_activities = cls.recover_from_attributes(objects)
+        if attr_activities:
+            logger.debug(
+                f"[ActivityRecovery] attributes → {attr_activities} | frame={frame_id}"
+            )
+            return attr_activities, "attributes"
+
+        # Priority 2 — caption patterns (medium confidence)
+        caption_activities = cls.recover_from_caption(caption)
+        if caption_activities:
+            logger.debug(
+                f"[ActivityRecovery] caption → {caption_activities} | frame={frame_id}"
+            )
+            return caption_activities, "caption"
+
+        # Priority 3 — keywords (lower confidence)
+        keyword_activities = cls.recover_from_keywords(keywords)
+        if keyword_activities:
+            logger.debug(
+                f"[ActivityRecovery] keywords → {keyword_activities} | frame={frame_id}"
+            )
+            return keyword_activities, "keywords"
+
+        logger.debug(f"[ActivityRecovery] no recovery possible | frame={frame_id}")
+        return [], "none"
+
+    @classmethod
+    def apply(cls, parsed: Dict[str, Any]) -> Dict[str, Any]:
+        """Apply activity recovery to a parsed frame metadata dictionary.
+
+        Mutates and returns ``parsed``.  If activities are recovered:
+          - ``parsed["activities"]``               is updated with recovered labels.
+          - ``parsed["activity_recovery_source"]`` is set to the recovery source.
+
+        If activities were already non-empty:
+          - ``parsed["activities"]`` is left unchanged.
+          - ``activity_recovery_source`` is not set (remains ``None`` after Pydantic
+            applies its default).
+
+        Args:
+            parsed: Normalized frame metadata dictionary (pre-Pydantic).
+
+        Returns:
+            Updated frame metadata dictionary.
+        """
+        activities, source = cls.recover(parsed)
+        parsed["activities"] = activities
+
+        if source not in ("original", "none"):
+            parsed["activity_recovery_source"] = source
+        elif source == "none":
+            # Explicitly record that no recovery was possible
+            parsed["activity_recovery_source"] = "none"
+        # source == "original": leave activity_recovery_source absent (Pydantic default None)
+
+        return parsed

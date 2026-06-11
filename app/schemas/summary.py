@@ -1,0 +1,104 @@
+"""Pydantic schemas for video summary API responses."""
+
+from typing import Any, Dict, List, Optional
+from pydantic import BaseModel, Field
+
+
+class FrameEventDetail(BaseModel):
+    """A single VLM-detected frame-level incident carried through to the summary API."""
+
+    event_type: str = ""
+    description: str = ""
+    actors: List[str] = Field(default_factory=list)
+    severity: str = "medium"
+    timestamp_hint: str = ""
+
+
+class AggregatedEvent(BaseModel):
+    """Represents a single aggregated clip-level event for summary and timeline display."""
+
+    event_id: str = ""
+    event_type: str = ""
+    description: str = ""
+    start_time: str = ""
+    end_time: str = ""
+    duration_seconds: float = 0.0
+    objects: List[Any] = Field(default_factory=list)
+    activities: List[str] = Field(default_factory=list)
+    primary_object: str = ""
+    location_text: str = "the monitored area"
+
+    # ── Narrative Intelligence Fields ──────────────────────────────────
+    scene_context: str = ""
+    real_world_time: Optional[str] = None
+    actor_description: str = ""
+    participants: List[str] = Field(default_factory=list)
+    participant_count: int = 0
+    behavioral_flags: List[str] = Field(default_factory=list)
+    confidence: float = 0.5
+    narrative_sentence: str = ""
+    thumbnail_path: Optional[str] = None
+    event_severity: int = 15
+
+    # ── NEW: Aggregated frame-level VLM incidents ───────────────────────
+    frame_events: List[FrameEventDetail] = Field(default_factory=list)
+    """Incidents detected by the VLM at the frame level (e.g. collision, intrusion, fall).
+    Populated from EventAggregationService._collect_frame_events().
+    """
+
+
+class ActivityStatistics(BaseModel):
+    """High-level statistics about video activity."""
+
+    total_events: int = 0
+    event_type_counts: Dict[str, int] = Field(default_factory=dict)
+    total_active_duration_seconds: float = 0.0
+    peak_activity_periods: List[str] = Field(default_factory=list)
+
+
+class NotableEvent(BaseModel):
+    """Represents a flagged event of significance."""
+
+    video_id: str = ""
+    event_id: str = ""
+    event_type: str = ""
+    description: str = ""
+    timestamp: str = ""
+    reason: str = ""
+    severity: str = "low"
+    tags: List[str] = Field(default_factory=list)
+
+
+class TimelineEntry(BaseModel):
+    """Single chronological entry in the video timeline."""
+
+    video_id: str = ""
+    time_range: str = ""
+    event_type: str = ""
+    description: str = ""
+    real_world_time: Optional[str] = None
+    behavioral_flags: List[str] = Field(default_factory=list)
+
+    # ── NEW: Surface incident details in the timeline ───────────────────
+    frame_events: List[FrameEventDetail] = Field(default_factory=list)
+    """Incidents tied to this timeline entry for frontend display."""
+
+
+class SummaryResponse(BaseModel):
+    """Complete API response for the video summary endpoint."""
+
+    video_id: str
+    status: str = "success"
+    overview: str = ""
+    statistics: ActivityStatistics = Field(default_factory=ActivityStatistics)
+    notable_events: List[NotableEvent] = Field(default_factory=list)
+    timeline: List[TimelineEntry] = Field(default_factory=list)
+    scene_context: str = ""
+    actors: List[str] = Field(default_factory=list)
+    disposition: str = "routine"
+
+    # ── NEW: Top-level incident summary ────────────────────────────────
+    incidents: List[FrameEventDetail] = Field(default_factory=list)
+    """All unique high/critical incidents found across the video, de-duplicated and sorted by severity.
+    Populated by SummaryService.generate_summary().
+    """
