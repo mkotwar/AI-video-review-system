@@ -86,6 +86,55 @@ class NarrativeBuilderService:
         return chains
 
     @classmethod
+    def generate_investigation_report(cls, timeline_text: str) -> dict:
+        """Call Gemini to generate a professional Investigation Report."""
+        if not cls.gemini_available():
+            logger.warning("Gemini API not configured. Cannot generate investigation report.")
+            return {}
+
+        prompt = (
+            "You are a professional CCTV investigator.\n"
+            "Analyze the timeline and incident chains.\n"
+            "Produce:\n"
+            "1. Executive Summary\n"
+            "2. Chronological Narrative\n"
+            "3. Key Findings\n"
+            "4. Recommended Actions\n\n"
+            "Focus on: theft, collisions, falls, injuries, pursuits, arrests, fire, suspicious behavior.\n"
+            "Use investigator language. Do not produce generic AI summaries.\n"
+            "Return structured JSON only, strictly matching this format:\n"
+            "{\n"
+            '  "executive_summary": "2-5 sentences",\n'
+            '  "incident_narrative": "Story-like reconstruction",\n'
+            '  "key_findings": ["Finding 1", "Finding 2"],\n'
+            '  "recommendations": ["Action 1", "Action 2"]\n'
+            "}\n\n"
+            f"Timeline:\n{timeline_text}\n"
+        )
+        
+        try:
+            from google import genai
+            client = genai.Client(api_key=settings.GEMINI_API_KEY)
+            resp = client.models.generate_content(
+                model=settings.NARRATIVE_MODEL_ID,
+                contents=prompt,
+                config={"response_mime_type": "application/json"}
+            )
+            raw_text = resp.text.strip()
+            
+            # Simple JSON cleanup if it includes markdown blocks
+            if raw_text.startswith("```json"):
+                raw_text = raw_text.replace("```json", "", 1)
+            if raw_text.endswith("```"):
+                raw_text = raw_text[: -3]
+                
+            report_data = json.loads(raw_text.strip())
+            return report_data
+        except Exception as e:
+            logger.error(f"[ERROR] Gemini Investigation Report generation failed: {e}")
+            return {}
+
+    @classmethod
     def _format_events_for_prompt(cls, events: List[AggregatedEvent]) -> str:
         """Serialize events into a compact, human-readable format for the LLM."""
         lines = []

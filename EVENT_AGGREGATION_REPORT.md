@@ -4,10 +4,10 @@ This report summarizes the results of grouping consecutive visually similar fram
 
 ## Ingestion Overview
 
-* **Video ID**: `f7453f97-0280-479e-b295-4858c6497e9c`
-* **Original Metadata Count (Accepted Frames)**: 7
-* **Event Count (Aggregated Events)**: 1
-* **Compression Ratio**: 7.00x
+* **Video ID**: `2841952d-d276-4d08-824e-eb03a7492404`
+* **Original Metadata Count (Accepted Frames)**: 0
+* **Event Count (Aggregated Events)**: 0
+* **Compression Ratio**: 0.00x
 
 ---
 

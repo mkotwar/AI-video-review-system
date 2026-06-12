@@ -598,6 +598,7 @@ class SummaryService:
     @classmethod
     def generate_summary(cls, video_id: str) -> SummaryResponse:
         """Main orchestrator to generate the investigation summary for a video."""
+        import time
         events = cls.load_events(video_id)
 
         if not events:
@@ -656,6 +657,29 @@ class SummaryService:
             logger.error(f"[ERROR] Failed to compute behavioral assessment: {e}")
             disposition = "routine"
 
+        # ── NEW: Investigation Report Generator (Phase 12.1) ────────
+        executive_summary = ""
+        incident_narrative = ""
+        key_findings = []
+        recommendations = []
+        
+        try:
+            from app.services.narrative_builder import NarrativeBuilderService
+            timeline_text = NarrativeBuilderService._format_events_for_prompt(events)
+            
+            logger.info("Starting Narrative Report Generator...")
+            start_time = time.time()
+            report_data = NarrativeBuilderService.generate_investigation_report(timeline_text)
+            latency = time.time() - start_time
+            logger.info(f"Narrative Report Generation completed in {latency:.2f} seconds.")
+            
+            executive_summary = report_data.get("executive_summary", "")
+            incident_narrative = report_data.get("incident_narrative", "")
+            key_findings = report_data.get("key_findings", [])
+            recommendations = report_data.get("recommendations", [])
+        except Exception as e:
+            logger.error(f"[ERROR] Failed to generate investigation report: {e}")
+
         return SummaryResponse(
             video_id=video_id,
             status="success",
@@ -668,4 +692,8 @@ class SummaryService:
             disposition=disposition,
             generation_source=gen_source,
             incidents=incidents,
+            executive_summary=executive_summary,
+            incident_narrative=incident_narrative,
+            key_findings=key_findings,
+            recommendations=recommendations,
         )
