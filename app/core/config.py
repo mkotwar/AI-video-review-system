@@ -100,6 +100,18 @@ class Settings(BaseSettings):
         default=0.70,
         description="Similarity ratio threshold above which consecutive frames are grouped into the same event",
     )
+    EVENT_CONTINUITY_THRESHOLD: float = Field(
+        default=0.35,
+        description="Weighted semantic continuity score below which an event cluster is split",
+    )
+    EVENT_CONTEXT_WINDOW: int = Field(
+        default=5,
+        description="Number of recent frames used when evaluating continuity",
+    )
+    MAX_EVENT_DURATION_SECONDS: int = Field(
+        default=15,
+        description="Safety boundary: Maximum duration in seconds for a single event cluster",
+    )
 
     # Qdrant & Embeddings Settings
     QDRANT_HOST: str = Field(default="localhost", description="Qdrant service host")
@@ -111,6 +123,16 @@ class Settings(BaseSettings):
     USE_LOCAL_QDRANT: bool = Field(
         default=True,
         description="Fallback to local in-memory Qdrant instance for development and tests",
+    )
+
+    # Narrative Reasoner Settings
+    GEMINI_API_KEY: str = Field(
+        default="",
+        description="API Key for Gemini models (Narrative Reasoner)",
+    )
+    NARRATIVE_MODEL_ID: str = Field(
+        default="gemini-2.5-flash",
+        description="LLM to use for narrative building",
     )
 
     # Directory Paths (Relative to project root, resolved to absolute paths)

@@ -63,6 +63,31 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchVideos();
 });
 
+// --- Global Error Panel ---
+function showErrorPanel(title, reason, backendResponse = "") {
+    console.error(`[ERROR] ${title} | ${reason} | ${backendResponse}`);
+    const container = document.getElementById('global-error-panel-container');
+    const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    
+    // Auto-dismiss previous ones or stack them. For simplicity, replace.
+    const panelHtml = `
+        <div class="error-panel">
+            <div class="error-panel-header">
+                <h3><i class="fa-solid fa-triangle-exclamation"></i> ${title}</h3>
+                <button class="error-close-btn" onclick="this.closest('.error-panel').remove()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="error-panel-body">
+                <p><strong>Reason:</strong> ${reason}</p>
+                <p><strong>Timestamp:</strong> ${timestamp}</p>
+                ${backendResponse ? `<pre>Backend Response:\n${backendResponse}</pre>` : ''}
+            </div>
+        </div>
+    `;
+    container.innerHTML = panelHtml;
+}
+
 // --- Navigation ---
 function setupNavigation() {
     navItems.forEach(item => {
@@ -83,7 +108,9 @@ function setupNavigation() {
 async function fetchVideos() {
     try {
         const response = await fetch(`${API_BASE}/videos/`);
-        if (!response.ok) return;
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
         const data = await response.json();
         currentVideos = Array.isArray(data) ? data : (data.videos || []);
         
@@ -92,7 +119,7 @@ async function fetchVideos() {
         videoSelect.innerHTML = `<option value="all">All Videos</option>${optionsHTML}`;
         analyticsVideoSelect.innerHTML = `<option value="all">All Videos</option>${optionsHTML}`;
     } catch (err) {
-        console.error("Failed to fetch videos", err);
+        showErrorPanel('Fetch Videos Failed', err.message);
     }
 }
 
@@ -175,16 +202,22 @@ async function handleUpload(file) {
             progressText.textContent = '100%';
             statusText.textContent = 'Upload Complete';
             
+            // Mark Upload stage complete
+            document.getElementById('stage-upload').className = 'checklist-item completed';
+            document.getElementById('stage-upload').innerHTML = '<i class="fa-solid fa-check-circle"></i> Video Uploaded';
+            
             // Start polling background job status
             startStatusPolling(data.video_id);
             
             fetchVideos(); // refresh list with new video ID
         } else {
-            const error = await response.json();
-            showUploadResult(`Upload failed: ${error.detail}`, false);
+            const errText = await response.text();
+            showUploadResult(`Upload failed`, false);
+            showErrorPanel('Upload Failed', `HTTP ${response.status}: ${response.statusText}`, errText);
         }
     } catch (err) {
         showUploadResult(`Error: ${err.message}`, false);
+        showErrorPanel('Upload Exception', err.message);
     }
 }
 
@@ -210,7 +243,11 @@ function startStatusPolling(videoId) {
     statusInterval = setInterval(async () => {
         try {
             const response = await fetch(`${API_BASE}/videos/${videoId}/status`);
-            if (!response.ok) return;
+            if (!response.ok) {
+                const errText = await response.text();
+                showErrorPanel('Status Polling Failed', `HTTP ${response.status}`, errText);
+                return;
+            }
             const data = await response.json();
             
             processingStatusText.textContent = data.current_step || 'Processing...';
@@ -230,6 +267,23 @@ function startStatusPolling(videoId) {
                 processingEta.innerHTML = `<i class="fa-regular fa-clock"></i> ETA: Calculating...`;
             }
             
+            // Checklist mapping
+            const st = (data.current_step || "").toLowerCase();
+            if (st.includes('extracting')) {
+                document.getElementById('stage-extract').className = 'checklist-item active';
+            } else if (st.includes('analyzing') || st.includes('vlm')) {
+                document.getElementById('stage-extract').className = 'checklist-item completed';
+                document.getElementById('stage-extract').innerHTML = '<i class="fa-solid fa-check-circle"></i> Frame Extraction';
+                document.getElementById('stage-metadata').className = 'checklist-item active';
+            } else if (st.includes('aggregating')) {
+                document.getElementById('stage-metadata').className = 'checklist-item completed';
+                document.getElementById('stage-metadata').innerHTML = '<i class="fa-solid fa-check-circle"></i> Metadata Generation';
+                document.getElementById('stage-events').className = 'checklist-item active';
+            } else if (st.includes('generating embeddings') || st.includes('indexing')) {
+                document.getElementById('stage-events').className = 'checklist-item completed';
+                document.getElementById('stage-events').innerHTML = '<i class="fa-solid fa-check-circle"></i> Event Segmentation';
+            }
+            
             if (data.status === 'complete' || data.status === 'failed') {
                 clearInterval(statusInterval);
                 statusInterval = null;
@@ -238,6 +292,18 @@ function startStatusPolling(videoId) {
                     processingProgressBar.style.width = '100%';
                     processingPercent.textContent = '100%';
                     showUploadResult(`Ingestion complete! Video is ready for search and analytics.`, true);
+                    
+                    // Mark all ingestion steps complete
+                    ['extract', 'metadata', 'events'].forEach(id => {
+                        const el = document.getElementById(`stage-${id}`);
+                        if (el) {
+                            el.className = 'checklist-item completed';
+                            el.innerHTML = `<i class="fa-solid fa-check-circle"></i> ${el.innerText.trim()}`;
+                        }
+                    });
+                    
+                    // Narrative and summary are done lazily on the Analytics page, but we mark them complete for UX transparency.
+                    // Wait, let's leave them pending, and mark them when Analytics is loaded.
                     
                     // Auto-refresh data and navigate
                     await fetchVideos();
@@ -251,10 +317,18 @@ function startStatusPolling(videoId) {
                 } else {
                     showUploadResult(`Processing failed at step: ${data.current_step}`, false);
                     processingProgressBar.style.background = 'var(--danger-color)';
+                    showErrorPanel('Processing Failed', data.current_step, JSON.stringify(data, null, 2));
+                    
+                    // Mark active checklist item as failed
+                    document.querySelectorAll('.checklist-item.active').forEach(el => {
+                        el.className = 'checklist-item failed';
+                        el.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> ${el.innerText.trim()}`;
+                    });
                 }
             }
         } catch (err) {
             console.error("Status polling failed:", err);
+            // Don't show error panel on every polling interval fail to avoid spam
         }
     }, 2000);
 }
@@ -294,12 +368,20 @@ async function performSearch() {
             body: JSON.stringify(reqBody)
         });
 
-        if (!response.ok) throw new Error('Search request failed');
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${response.statusText}\n${errText}`);
+        }
         const data = await response.json();
+        
+        if (!data || typeof data !== "object") {
+            throw new Error("Invalid server response");
+        }
         
         renderSearchResults(data.results || []);
     } catch (err) {
         resultsContainer.innerHTML = `<div class="result-message error">Search Error: ${err.message}</div>`;
+        showErrorPanel('Search Failed', err.message);
     } finally {
         searchLoading.classList.add('hidden');
     }
@@ -366,14 +448,26 @@ function setupAnalytics() {
 
         try {
             const videoIds = videoId === 'all' ? currentVideos.map(v => v.video_id) : [videoId];
-            const summaries = await Promise.all(videoIds.map(id => fetch(`${API_BASE}/api/v1/videos/${id}/summary`).then(r => r.json())));
+            const summaries = await Promise.all(videoIds.map(async id => {
+                const r = await fetch(`${API_BASE}/api/v1/videos/${id}/summary`);
+                if (!r.ok) {
+                    const errText = await r.text();
+                    throw new Error(`HTTP ${r.status}: ${r.statusText}\n${errText}`);
+                }
+                return r.json();
+            }));
             
             const data = summaries.reduce((acc, curr) => ({
                 statistics: { total_events: (acc.statistics?.total_events || 0) + (curr.statistics?.total_events || 0) },
                 notable_events: [...(acc.notable_events || []), ...(curr.notable_events || [])],
                 timeline: [...(acc.timeline || []), ...(curr.timeline || [])],
-                overview: (acc.overview || "") + " " + (curr.overview || "")
+                overview: (acc.overview || "") + " " + (curr.overview || ""),
+                generation_source: curr.generation_source || acc.generation_source
             }), {});
+
+            if (!data || typeof data !== "object") {
+                throw new Error("Invalid server response");
+            }
 
             const startSec = startAfter ? toSec(startAfter.split('T')[1]) : null;
             const endSec = endBefore ? toSec(endBefore.split('T')[1]) : null;
@@ -395,19 +489,78 @@ function setupAnalytics() {
             };
 
             renderAnalytics(filteredData);
+            
+            // Fulfill the narrative/summary UX tracking logic if present on screen
+            const stageNarrative = document.getElementById('stage-narrative');
+            const stageSummary = document.getElementById('stage-summary');
+            if (stageNarrative && stageSummary) {
+                stageNarrative.className = 'checklist-item completed';
+                stageNarrative.innerHTML = '<i class="fa-solid fa-check-circle"></i> Narrative Reasoning';
+                stageSummary.className = 'checklist-item completed';
+                stageSummary.innerHTML = '<i class="fa-solid fa-check-circle"></i> Summary Generation';
+            }
+            
             analyticsLoading.classList.add('hidden');
             analyticsContent.classList.remove('hidden');
         } catch (err) {
-            alert("Error loading analytics: " + err.message);
+            showErrorPanel("Summary Generation Failed", err.message);
+            
+            // Mark checklist as failed
+            const stageNarrative = document.getElementById('stage-narrative');
+            const stageSummary = document.getElementById('stage-summary');
+            if (stageNarrative && stageSummary) {
+                stageNarrative.className = 'checklist-item failed';
+                stageNarrative.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Narrative Reasoning Failed';
+                stageSummary.className = 'checklist-item failed';
+                stageSummary.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Summary Generation Failed';
+            }
+            
             analyticsLoading.classList.add('hidden');
+            
+            // Render blank safe state
+            renderAnalytics({
+                statistics: { total_events: 0 },
+                notable_events: [],
+                timeline: [],
+                overview: "Summary unavailable due to backend failure.",
+                generation_source: "Error"
+            });
+            analyticsContent.classList.remove('hidden');
         }
     });
 }
 
 function renderAnalytics(data) {
+    if (!data || typeof data !== "object") {
+        showErrorPanel("Validation Error", "Invalid data payload in renderAnalytics");
+        return;
+    }
+
     statTotalEvents.textContent = data.statistics?.total_events || 0;
-    statNotableEvents.textContent = data.notable_events?.length || 0;
-    overviewText.textContent = data.overview || "No overview available.";
+    statNotableEvents.textContent = (data.notable_events?.length || 0);
+    
+    const overviewStr = (data.overview && data.overview.trim().length > 0) ? data.overview : "No significant incidents detected.";
+    overviewText.textContent = overviewStr;
+
+    // Render Status Badge
+    const badgeContainer = document.getElementById('ai-status-badge-container');
+    if (badgeContainer) {
+        const source = data.generation_source || "Unknown";
+        let badgeHtml = "";
+        
+        if (source.includes("Gemini")) {
+            badgeHtml = `<span class="status-badge ai-active"><i class="fa-solid fa-circle-check"></i> AI Reasoning Active</span>
+                         <span style="font-size: 11px; color: var(--text-secondary); margin-left: 8px;">Generated By: ${source}</span>`;
+        } else if (source.includes("Legacy")) {
+            badgeHtml = `<span class="status-badge legacy-fallback"><i class="fa-solid fa-triangle-exclamation"></i> Legacy Fallback Active</span>
+                         <span style="font-size: 11px; color: var(--text-secondary); margin-left: 8px;">Generated By: ${source}</span>`;
+        } else if (source === "Error") {
+            badgeHtml = `<span class="status-badge error-state"><i class="fa-solid fa-circle-xmark"></i> Generation Failed</span>`;
+        } else {
+            badgeHtml = `<span class="status-badge legacy-fallback"><i class="fa-solid fa-circle-info"></i> ${source}</span>`;
+        }
+        badgeContainer.innerHTML = badgeHtml;
+    }
 
     const eventsToRender = (data.notable_events && data.notable_events.length > 0) ? data.notable_events : data.timeline;
 

@@ -1,85 +1,58 @@
 {
     "event_id": "evt_002",
     "video_id": "1398ebb1-26f1-4eac-9fa9-34a7480b70e1",
-    "start_time": 34.0,
-    "end_time": 41.0,
-    "timestamp_start_seconds": 34.0,
-    "timestamp_end_seconds": 41.0,
-    "timestamp_start_human": "00:00:34",
-    "timestamp_end_human": "00:00:41",
-    "duration_seconds": 7.0,
-    "frame_count": 6,
+    "start_time": 29.0,
+    "end_time": 34.0,
+    "timestamp_start_seconds": 29.0,
+    "timestamp_end_seconds": 34.0,
+    "timestamp_start_human": "00:00:29",
+    "timestamp_end_human": "00:00:34",
+    "duration_seconds": 5.0,
+    "frame_count": 5,
     "objects": [
         {
             "type": "fence",
-            "subtype": "metallic security fence",
+            "subtype": "metal security fence",
             "color": "gray",
-            "attributes": [
-                "secured perimeter",
-                "vertical bars"
-            ]
-        },
-        {
-            "type": "gate",
-            "subtype": "large metal gate",
-            "color": "brown",
-            "attributes": [
-                "barbed wire on top",
-                "closed"
-            ]
-        },
-        {
-            "type": "building",
-            "subtype": "utility building",
-            "color": "white",
-            "attributes": [
-                "open door leading inside"
-            ]
-        },
-        {
-            "type": "building",
-            "subtype": "entrance building",
-            "color": "white",
             "attributes": []
         },
         {
-            "type": "gate",
-            "subtype": "metal gate",
-            "color": "brown",
+            "type": "building",
+            "subtype": "gatehouse",
+            "color": "white",
             "attributes": [
-                "closed",
-                "with bars"
+                "attached to metal fencing",
+                "rectangular shape"
             ]
         },
         {
             "type": "signage",
-            "subtype": "date-time stamp sign",
-            "color": "red",
+            "subtype": "entrance sign",
+            "color": "red/white",
             "attributes": [
-                "reading \"Gate 1 Entrance Area\""
+                "text indicating \"Gate Entrance Area\""
+            ]
+        },
+        {
+            "type": "electric pole",
+            "subtype": "utility pole",
+            "color": "brown/black",
+            "attributes": [
+                "with wires connected"
+            ]
+        },
+        {
+            "type": "vehicle",
+            "subtype": "motorcycle",
+            "color": "blue/red",
+            "attributes": [
+                "parked near building"
             ]
         },
         {
             "type": "fence",
-            "subtype": "electric fence",
-            "color": "gray",
-            "attributes": [
-                "barbed wire top"
-            ]
-        },
-        {
-            "type": "trees",
-            "subtype": "green trees",
-            "color": "various shades green",
-            "attributes": [
-                "visible behind gate",
-                "visible beyond the fence"
-            ]
-        },
-        {
-            "type": "fence",
-            "subtype": "metallic security fence",
-            "color": "gray metallic",
+            "subtype": "metal gate",
+            "color": "brown",
             "attributes": []
         },
         {
@@ -87,116 +60,161 @@
             "subtype": "security booth",
             "color": "white",
             "attributes": [
-                "entrance sign reading \"Gate 1 Entrance Area\"",
-                "open door"
-            ]
-        },
-        {
-            "type": "signage",
-            "subtype": "warning signage on wall",
-            "color": "red/white",
-            "attributes": [
-                "text visible but unclear due to resolution"
-            ]
-        },
-        {
-            "type": "building",
-            "subtype": "gatehouse",
-            "color": "white",
-            "attributes": [
-                "open door leading inside building",
-                "utility poles nearby"
+                "entrance",
+                "guarded by uniformed personnel",
+                "open door",
+                "with windows"
             ]
         },
         {
             "type": "signage",
             "subtype": "entrance sign",
-            "color": "red/white",
+            "color": "blue",
             "attributes": [
-                "text indicating entry point for Gate 1"
+                "visible on building behind fence"
             ]
         },
         {
-            "type": "gate",
-            "subtype": "large metal security gate",
-            "color": "gray metallic",
+            "type": "vehicle",
+            "subtype": "motorcycle",
+            "color": "red",
+            "attributes": [
+                "parked near entrance"
+            ]
+        },
+        {
+            "type": "personnel",
+            "subtype": "guard",
+            "color": "uniform white",
+            "attributes": [
+                "standing beside motorcycle"
+            ]
+        },
+        {
+            "type": "personnel",
+            "subtype": "security guard",
+            "color": "white shirt, dark pants",
             "attributes": []
         },
         {
-            "type": "building",
-            "subtype": "small building adjacent to the gate",
-            "color": "white",
+            "type": "fence",
+            "subtype": "metal gate",
+            "color": "gray metallic",
             "attributes": [
-                "adjacent to the main gate",
-                "contains open doorway leading inside"
+                "closed",
+                "high"
+            ]
+        },
+        {
+            "type": "building",
+            "subtype": "entrance building",
+            "color": "light beige/cream",
+            "attributes": [
+                "open door",
+                "utility poles visible behind"
             ]
         },
         {
             "type": "fence",
-            "subtype": "metal fence surrounding property",
-            "color": "silver metallic",
-            "attributes": [
-                "extends along perimeter behind the gate"
-            ]
+            "subtype": "metallic security fence",
+            "color": "gray",
+            "attributes": []
         },
         {
-            "type": "electric poles",
-            "subtype": "utility poles supporting wires",
-            "color": "brown wooden",
+            "type": "gate",
+            "subtype": "large metal gate",
+            "color": "silver",
             "attributes": [
-                "tall structures standing upright near the gate"
-            ]
-        },
-        {
-            "type": "building",
-            "subtype": "facade entrance building",
-            "color": "white",
-            "attributes": [
-                "concrete floor",
-                "open door"
+                "closed state",
+                "guarded by person standing nearby"
             ]
         },
         {
             "type": "signage",
-            "subtype": "entrance sign",
-            "color": "red/black",
+            "subtype": "emergency exit sign",
+            "color": "red/white",
             "attributes": [
-                "text indicating 'Gate 1 Entrance Area'"
+                "visible on left side wall"
+            ]
+        },
+        {
+            "type": "gate",
+            "subtype": "metallic security gate",
+            "color": "brown",
+            "attributes": [
+                "barred design",
+                "closed"
+            ]
+        },
+        {
+            "type": "building",
+            "subtype": "facade building",
+            "color": "white",
+            "attributes": [
+                "entrance door visible",
+                "modern architecture"
+            ]
+        },
+        {
+            "type": "fence",
+            "subtype": "electric fence",
+            "color": "black",
+            "attributes": [
+                "with barbed wire top"
+            ]
+        },
+        {
+            "type": "trees",
+            "subtype": "green foliage trees",
+            "color": "various shades green",
+            "attributes": []
+        },
+        {
+            "type": "vehicles",
+            "subtype": "cars",
+            "color": "blue and red",
+            "attributes": [
+                "parked behind the gate"
             ]
         }
     ],
     "activities": [
-        "entering",
-        "man walking away from camera towards open doorway; another person entering through side door behind main subject."
+        "vehicle parked",
+        "standing"
     ],
-    "primary_object": "Large metal gate",
-    "color": "brown",
-    "primary_activity": "entering",
+    "primary_object": "Security guard",
+    "color": "uniform white",
+    "primary_activity": "vehicle parked",
     "source_frames": [
-        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0035",
-        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0037",
-        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0038",
-        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0039",
-        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0040",
-        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0041"
+        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0030",
+        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0031",
+        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0032",
+        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0033",
+        "1398ebb1-26f1-4eac-9fa9-34a7480b70e1_f0034"
     ],
-    "event_type": "activity_detected",
-    "summary": "Large metal gate was observed entering and man walking away from camera towards open doorway; another person entering through side door behind main subject. at Gate 1 Enterance Area.",
-    "scene_context": "a gate entrance area during daytime, likely at an industrial facility given the presence of large gates and fencing.",
-    "real_world_time": "18:04:24",
-    "actor_description": "brown, large metal gate, barbed wire on top",
+    "event_type": "vehicle_movement",
+    "summary": "Vehicle movement involving security guard was detected at Gate 1 Enterance Area. Other participants: gray metal security fence, blue/red motorcycle (parked near building), white security booth (entrance), red motorcycle (parked near entrance), white shirt, dark pants security guard, gray metallic security fence.",
+    "scene_context": "a gate entrance area during daytime, likely evening given the lighting conditions.",
+    "real_world_time": "18:04:19",
+    "actor_description": "uniform white, guard, standing beside motorcycle",
     "participants": [
-        "gray metallic security fence (secured perimeter)",
-        "gray metallic metallic security fence",
-        "white security booth (entrance sign reading \"Gate 1 Entrance Area\")",
-        "gray metallic large metal security gate"
+        "gray metal security fence",
+        "blue/red motorcycle (parked near building)",
+        "white security booth (entrance)",
+        "red motorcycle (parked near entrance)",
+        "white shirt, dark pants security guard",
+        "gray metallic security fence"
     ],
-    "participant_count": 4,
+    "participant_count": 9,
     "behavioral_flags": [
         "multi_person",
-        "access_event"
+        "egress_event",
+        "static_vehicle"
     ],
-    "confidence": 0.662,
-    "narrative_sentence": "At 18:04:24, Large metal gate (brown, large metal gate, barbed wire on top) entered at Gate 1 Enterance Area. Others present: gray metallic security fence (secured perimeter), gray metallic metallic security fence.",
-    "location_text": "Gate 1 Enterance Area"
+    "confidence": 0.691,
+    "narrative_sentence": "At 18:04:19, Security guard (uniform white, guard, standing beside motorcycle) exited at Gate 1 Enterance Area. Others present: gray metal security fence, blue/red motorcycle (parked near building).",
+    "location_text": "Gate 1 Enterance Area",
+    "event_severity": 30,
+    "unified_text": "No description available. gate entry point security check uniformed staff institutional setting security booth person walking away daytime scene vehicle parked standing gray metal security fence fence white gatehouse building red/white entrance sign signage brown/black utility pole electric pole blue/red motorcycle vehicle brown metal gate fence white security booth building blue entrance sign signage red motorcycle vehicle uniform white guard personnel white shirt, dark pants security guard personnel gray metallic metal gate fence light beige/cream entrance building building gray metallic security fence fence silver large metal gate gate red/white emergency exit sign signage brown metallic security gate gate white facade building building black electric fence fence various shades green green foliage trees trees blue and red cars vehicles",
+    "frame_events": []
 }

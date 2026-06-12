@@ -20,11 +20,10 @@ async def get_video_summary(
     """
     try:
         logger.info(f"Generating summary for video_id: {video_id}")
-        # Generating summary is currently deterministic and synchronous.
-        # Can easily be made async if it starts relying on external IO heavily.
         return SummaryService.generate_summary(video_id)
     except Exception as e:
-        logger.error(f"Error generating summary for video {video_id}: {e}")
+        logger.exception(f"Critical unrecoverable error generating summary for video {video_id}: {e}")
+        # Only return 500 if the actual initialization of the response model fails completely.
         raise HTTPException(status_code=500, detail="Internal Server Error during summary generation")
 
 @router.get("/{video_id}/report")

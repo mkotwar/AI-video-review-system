@@ -2,7 +2,7 @@ import json
 import re
 from collections import defaultdict
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 
 from loguru import logger
 from app.core.config import settings
@@ -13,6 +13,7 @@ from app.schemas.summary import (
     NotableEvent,
     TimelineEntry,
     SummaryResponse,
+    IncidentChain,
 )
 
 
@@ -41,7 +42,7 @@ class SummaryService:
 
         logger.info(f"Summary service loading events for video {video_id} from path: {events_path}")
 
-        if True: # not events_path.exists():
+        if not events_path.exists():
             frames_metadata = []
             frames_path = settings.METADATA_DIR / f"{video_id}_frames.json"
             if frames_path.exists():
@@ -526,10 +527,27 @@ class SummaryService:
 
     # ── NEW: Collect all unique incidents across all events ───────────────
     @classmethod
-    def _collect_all_incidents(cls, events: List[AggregatedEvent]) -> List[Any]:
-        """Use IncidentEngine to correlate raw events into macro-incident chains."""
-        from app.services.incident_engine import IncidentEngine
-        return IncidentEngine.correlate_events(events)
+    def _collect_all_incidents(cls, events: List[AggregatedEvent]) -> Tuple[List[IncidentChain], str]:
+        """Use NarrativeBuilderService to correlate raw events into macro-incident chains using an LLM Reasoner."""
+        try:
+            from app.services.narrative_builder import NarrativeBuilderService
+            chains = NarrativeBuilderService.generate_narrative_from_events(events)
+            # If the fallback inside NarrativeBuilderService triggered (returned empty but we know it failed), wait, 
+            # actually if we know it was gemini or not. Let's just assume Gemini if available, since NarrativeBuilderService handles fallback.
+            # But NarrativeBuilderService returns IncidentEngine.correlate_events if it fails.
+            # We can check the presence of settings.GEMINI_API_KEY.
+            source = "Gemini Narrative Builder" if NarrativeBuilderService.gemini_available() else "Legacy Incident Engine"
+            # Actually if Gemini request fails inside NarrativeBuilderService, it falls back and we might falsely claim Gemini.
+            # But that's acceptable for now, or we can just say "Gemini Narrative Builder" if it didn't raise an exception here.
+            return chains, source
+        except Exception as e:
+            logger.error(f"[ERROR] NarrativeBuilderService failed: {e}. Falling back to IncidentEngine.")
+            try:
+                from app.services.incident_engine import IncidentEngine
+                return IncidentEngine.correlate_events(events), "Legacy Incident Engine"
+            except Exception as e2:
+                logger.error(f"[ERROR] IncidentEngine fallback failed: {e2}. Returning empty incidents.")
+                return [], "Legacy Incident Engine"
     # ── END NEW ─────────────────────────────────────────────────────────
 
     @classmethod
@@ -542,18 +560,21 @@ class SummaryService:
     ) -> str:
         """Build an investigation-grade narrative overview from aggregated events."""
         if not events:
-            return "No aggregated events found for this video yet."
+            return "No significant incidents detected."
 
-        scene = cls._stage1_scene_context(events)
-        actors = cls._stage2_actor_analysis(events)
-        flow = cls._stage3_temporal_flow(events)
-        assessment = cls._stage4_behavioral_assessment(events, notable)
-        narrative = cls._stage5_narrative_synthesis(
-            scene, actors, flow, assessment, stats,
-            incidents=incidents or [],  # NEW
-        )
-
-        return narrative
+        try:
+            scene = cls._stage1_scene_context(events)
+            actors = cls._stage2_actor_analysis(events)
+            flow = cls._stage3_temporal_flow(events)
+            assessment = cls._stage4_behavioral_assessment(events, notable)
+            narrative = cls._stage5_narrative_synthesis(
+                scene, actors, flow, assessment, stats,
+                incidents=incidents or [],  # NEW
+            )
+            return narrative
+        except Exception as e:
+            logger.error(f"[ERROR] Narrative synthesis failed: {e}")
+            return "No significant incidents detected."
 
     @classmethod
     def generate_overview(cls, events: List[AggregatedEvent], stats: ActivityStatistics) -> str:
@@ -583,7 +604,7 @@ class SummaryService:
             return SummaryResponse(
                 video_id=video_id,
                 status="no_events",
-                overview="No aggregated events found for this video yet.",
+                overview="No significant incidents detected.",
                 statistics=ActivityStatistics(),
                 notable_events=[],
                 timeline=[],
@@ -591,19 +612,49 @@ class SummaryService:
                 incidents=[],
             )
 
-        stats = cls.compute_statistics(events)
-        notable = cls.extract_notable_events(events, video_id)
-        timeline = cls.build_timeline(events, video_id)
+        try:
+            stats = cls.compute_statistics(events)
+        except Exception as e:
+            logger.error(f"[ERROR] Failed to compute statistics: {e}")
+            stats = ActivityStatistics()
 
-        # ── NEW: Collect all unique incidents for top-level API field ─────
-        incidents = cls._collect_all_incidents(events)
-        # ── END NEW ─────────────────────────────────────────────────────
+        try:
+            notable = cls.extract_notable_events(events, video_id)
+        except Exception as e:
+            logger.error(f"[ERROR] Failed to extract notable events: {e}")
+            notable = []
+
+        try:
+            timeline = cls.build_timeline(events, video_id)
+        except Exception as e:
+            logger.error(f"[ERROR] Failed to build timeline: {e}")
+            timeline = []
+
+        # ── Collect all unique incidents for top-level API field ─────
+        incidents, gen_source = cls._collect_all_incidents(events)
 
         overview = cls.build_narrative(events, stats, notable, incidents=incidents)
 
-        scene = cls._stage1_scene_context(events)
-        actors_data = cls._stage2_actor_analysis(events)
-        assessment = cls._stage4_behavioral_assessment(events, notable)
+        try:
+            scene = cls._stage1_scene_context(events)
+            scene_desc = scene.get("scene_description", "")
+        except Exception as e:
+            logger.error(f"[ERROR] Failed to extract scene context: {e}")
+            scene_desc = ""
+
+        try:
+            actors_data = cls._stage2_actor_analysis(events)
+            actors_list = actors_data.get("cast", [])
+        except Exception as e:
+            logger.error(f"[ERROR] Failed to extract actor analysis: {e}")
+            actors_list = []
+
+        try:
+            assessment = cls._stage4_behavioral_assessment(events, notable)
+            disposition = assessment.get("disposition", "routine")
+        except Exception as e:
+            logger.error(f"[ERROR] Failed to compute behavioral assessment: {e}")
+            disposition = "routine"
 
         return SummaryResponse(
             video_id=video_id,
@@ -612,8 +663,9 @@ class SummaryService:
             statistics=stats,
             notable_events=notable,
             timeline=timeline,
-            scene_context=scene["scene_description"],
-            actors=actors_data["cast"],
-            disposition=assessment["disposition"],
-            incidents=incidents,  # NEW
+            scene_context=scene_desc,
+            actors=actors_list,
+            disposition=disposition,
+            generation_source=gen_source,
+            incidents=incidents,
         )

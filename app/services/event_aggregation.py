@@ -525,92 +525,127 @@ class EventAggregationService:
         groups: List[List[Dict[str, Any]]] = []
         current_group: List[Dict[str, Any]] = [sorted_frames[0]]
         
-        # Helper to check semantic overlap
-        def has_semantic_overlap(group: List[Dict], new_frame: Dict) -> bool:
-            # 1. Temporal boundary check (MAX_EVENT_DURATION_SECONDS = 10)
+        # Helper to check semantic continuity
+        def calculate_event_continuity_score(group: List[Dict], new_frame: Dict) -> bool:
+            # 1. Safety boundary check
             first_time = float(group[0].get("timestamp_seconds", 0.0))
             current_time = float(new_frame.get("timestamp_seconds", 0.0))
             duration = current_time - first_time
             
-            if duration > 10.0:
-                logger.debug(f"GroupDuration={duration:.2f}s ActivityMatch=False ObjectMatch=False | Reason: max_duration_exceeded")
+            if duration > settings.MAX_EVENT_DURATION_SECONDS:
+                logger.debug(
+                    f"Frame={new_frame.get('frame_id')} | "
+                    f"Continuity Score=0.00 | "
+                    f"Decision=START_NEW_EVENT | "
+                    f"Reason=Duration exceeded"
+                )
                 return False
 
-            def is_critical(f: Dict) -> bool:
-                text = cls.extract_event_text(f)
-                evt_type = cls.infer_event_type(f.get("objects", []), f.get("activities", []), f.get("scene_type", ""), text)
-                return evt_type in {"fall_incident", "medical_emergency", "collision_or_accident", "fire_incident", "intrusion"}
-
-            group_critical = any(is_critical(f) for f in group)
-            new_critical = is_critical(new_frame)
+            # Use the last N frames of the group for smoothed continuity comparison
+            window_size = getattr(settings, "EVENT_CONTEXT_WINDOW", 5)
+            recent_frames = group[-window_size:]
             
-            # Strict incident preservation boundary
-            if new_critical and not group_critical:
-                return False
-            if group_critical and not new_critical:
-                return False
+            # Recency weights for up to 5 frames (from most recent to oldest)
+            default_weights = [0.50, 0.25, 0.15, 0.07, 0.03]
+            weights = default_weights[:len(recent_frames)]
+            
+            # Normalize weights if there are fewer than 5 frames
+            weight_sum = sum(weights)
+            weights = [w / weight_sum for w in weights]
+            
+            def get_actors(f: Dict) -> set:
+                actors = set()
+                for obj in f.get("objects", []):
+                    if isinstance(obj, dict):
+                        typ = str(obj.get("type", "")).lower()
+                        sub = str(obj.get("subtype", "")).lower()
+                        if "person" in typ or "human" in typ or "vehicle" in typ or "car" in typ or "bike" in typ or "truck" in typ:
+                            actors.add(f"{typ}_{sub}")
+                return actors
                 
-            if group_critical and new_critical:
-                g_text = cls.extract_event_text(group[-1])
-                g_type = cls.infer_event_type(group[-1].get("objects", []), group[-1].get("activities", []), group[-1].get("scene_type", ""), g_text)
-                n_text = cls.extract_event_text(new_frame)
-                n_type = cls.infer_event_type(new_frame.get("objects", []), new_frame.get("activities", []), new_frame.get("scene_type", ""), n_text)
-                if g_type != n_type:
-                    return False
-                
-            # 2. Activity Match (Stricter)
-            # Require exact phrase match or >=2 shared non-stop words
-            acts_group_exact = set()
-            words_group = set()
-            for f in group[-3:]:
+            def get_activities(f: Dict) -> set:
+                acts = set()
+                stop_words = {"in", "on", "at", "the", "a", "an", "is", "are", "and", "or"}
                 for a in f.get("activities", []):
-                    acts_group_exact.add(a.lower().strip())
-                    words_group.update(w.strip() for w in a.lower().replace('/', ' ').replace(',', ' ').split())
-                    
-            acts_new_exact = set()
-            words_new = set()
-            for a in new_frame.get("activities", []):
-                acts_new_exact.add(a.lower().strip())
-                words_new.update(w.strip() for w in a.lower().replace('/', ' ').replace(',', ' ').split())
-            
-            stop_words = {"in", "on", "at", "movement", "operation", "detected", "the", "a", "an", "is", "are"}
-            words_group -= stop_words
-            words_new -= stop_words
-            
-            word_overlap = words_group.intersection(words_new)
-            activity_match = False
-            
-            if acts_group_exact.intersection(acts_new_exact):
-                activity_match = True
-            elif len(word_overlap) >= 2 or (len(word_overlap) == 1 and min(len(words_group), len(words_new)) <= 1):
-                activity_match = True
+                    words = [w.strip() for w in str(a).lower().replace('/', ' ').replace(',', ' ').split()]
+                    acts.update([w for w in words if w not in stop_words])
+                return acts
                 
-            # 3. Object Match
-            def get_core_objects(frames):
-                objs = set()
-                for f in frames:
-                    for o in f.get("objects", []):
-                        if isinstance(o, dict):
-                            typ = str(o.get("type", "")).lower()
-                            sub = str(o.get("subtype", "")).lower()
-                            if any(x in typ for x in ["vehicle", "car", "bus", "truck", "bike"]) or any(x in sub for x in ["vehicle", "car", "bus", "truck", "bike"]):
-                                objs.add("vehicle")
-                            if any(x in typ for x in ["person", "pedestrian", "driver", "passenger"]) or any(x in sub for x in ["person", "pedestrian", "driver", "passenger"]):
-                                objs.add("person")
-                return objs
+            def get_scene_context(f: Dict) -> set:
+                ctx = set()
+                if "scene_type" in f:
+                    ctx.add(str(f["scene_type"]).lower())
+                for kw in f.get("keywords", []):
+                    ctx.add(str(kw).lower())
+                return ctx
                 
-            objs_group = get_core_objects(group[-3:])
-            objs_new = get_core_objects([new_frame])
+            def get_behavioral_flags(f: Dict) -> set:
+                flags = set()
+                text = str(f.get("activities", [])) + " " + str(f.get("objects", []))
+                text = text.lower()
+                if any(k in text for k in ["fall", "falling", "collapse", "ground"]): flags.add("fall")
+                if any(k in text for k in ["crash", "collision", "accident", "hit", "strike"]): flags.add("crash")
+                if any(k in text for k in ["fire", "smoke", "flame", "burn"]): flags.add("fire")
+                if any(k in text for k in ["run", "flee", "sprint", "chase"]): flags.add("fleeing")
+                if any(k in text for k in ["guard", "security", "police", "officer"]): flags.add("security")
+                return flags
+                
+            def jaccard(set1: set, set2: set) -> float:
+                if not set1 and not set2:
+                    return 1.0
+                intersection = set1.intersection(set2)
+                union = set1.union(set2)
+                return len(intersection) / len(union) if union else 0.0
+
+            new_actors = get_actors(new_frame)
+            new_acts = get_activities(new_frame)
+            new_ctx = get_scene_context(new_frame)
+            new_flags = get_behavioral_flags(new_frame)
+
+            weighted_actor = 0.0
+            weighted_act = 0.0
+            weighted_ctx = 0.0
+            weighted_flag = 0.0
+
+            # Iterate backwards (recent_frames[-1] is the most recent)
+            for idx, frame in enumerate(reversed(recent_frames)):
+                weight = weights[idx]
+                
+                f_actors = get_actors(frame)
+                f_acts = get_activities(frame)
+                f_ctx = get_scene_context(frame)
+                f_flags = get_behavioral_flags(frame)
+                
+                weighted_actor += jaccard(f_actors, new_actors) * weight
+                weighted_act += jaccard(f_acts, new_acts) * weight
+                weighted_ctx += jaccard(f_ctx, new_ctx) * weight
+                weighted_flag += jaccard(f_flags, new_flags) * weight
+
+            total_score = (weighted_actor * 0.3) + (weighted_act * 0.3) + (weighted_ctx * 0.2) + (weighted_flag * 0.2)
             
-            object_match = bool(objs_group and objs_new and objs_group.intersection(objs_new))
+            threshold = settings.EVENT_CONTINUITY_THRESHOLD
+            is_continuous = total_score >= threshold
             
+            decision = "CONTINUE_EVENT" if is_continuous else "START_NEW_EVENT"
+            reasons = []
+            if not is_continuous:
+                reasons.append("Low similarity")
+                if weighted_actor < 0.3: reasons.append("Actor change")
+                if weighted_act < 0.3: reasons.append("Activity change")
+                if weighted_ctx < 0.3: reasons.append("Scene change")
+                if weighted_flag < 0.5: reasons.append("Behavior change")
+            else:
+                reasons.append("Similarity ok")
+                
             logger.debug(
-                f"GroupDuration={duration:.2f}s "
-                f"ActivityMatch={activity_match} "
-                f"ObjectMatch={object_match}"
+                f"Frame={new_frame.get('frame_id')} | "
+                f"Continuity Score={total_score:.2f} | "
+                f"Decision={decision} | "
+                f"Reason={', '.join(reasons)} | "
+                f"Actor={weighted_actor:.2f} Act={weighted_act:.2f} Ctx={weighted_ctx:.2f} Flag={weighted_flag:.2f}"
             )
             
-            return activity_match or object_match
+            return is_continuous
 
         # Iterate with 1-frame tolerance
         i = 1
@@ -624,7 +659,7 @@ class EventAggregationService:
             logger.debug(f"Evaluating Frame={frame_id} | Timestamp={timestamp} | Activity={activities} | EventType={frame.get('scene_type', 'unknown')}")
             
             # Check overlap with current group
-            if has_semantic_overlap(current_group, frame):
+            if calculate_event_continuity_score(current_group, frame):
                 current_group.append(frame)
                 logger.debug(f"MergedInto=evt_{cluster_idx:03d} | Assignment: current group")
                 i += 1
@@ -634,7 +669,7 @@ class EventAggregationService:
                     next_frame = sorted_frames[i+1]
                     next_frame_id = next_frame.get("frame_id", f"idx_{i+1}")
                     logger.debug(f"Checking tolerance frame lookahead: Frame={next_frame_id}")
-                    if has_semantic_overlap(current_group, next_frame):
+                    if calculate_event_continuity_score(current_group, next_frame):
                         # The current frame is a glitch/transition, absorb it
                         current_group.append(frame)
                         current_group.append(next_frame)
