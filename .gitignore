@@ -17,10 +17,13 @@ venv/
 
 # Data
 
-data/videos/
+# Generated event files
+data/events/
 data/frames/
+data/videos/
 data/metadata/
-data/cache/
+data/logs/
+data/reports/
 
 # Logs
 
